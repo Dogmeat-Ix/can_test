@@ -11,6 +11,7 @@
 #include <lely/io2/sys/io.hpp>
 #include <lely/io2/sys/sigset.hpp>
 #include <lely/io2/sys/timer.hpp>
+#include <lely/coapp/master.hpp>
 
 #if _WIN32
 #include <thread>
@@ -56,6 +57,13 @@ main() {
 #endif
   chan.open(ctrl);
 
+
+  // Create a CANopen master with node-ID 1. The master is asynchronous, which
+  // means every user-defined callback for a CANopen event will be posted as a
+  // task on the event loop, instead of being invoked during the event
+  // processing by the stack.
+  canopen::AsyncMaster master(timer, chan, "master.dcf", "", 1);
+
   // Create a signal handler.
   io::SignalSet sigset(poll, exec);
   // Watch for Ctrl+C or process termination.
@@ -71,6 +79,10 @@ main() {
     ctx.shutdown();
   });
 
+
+  // Start the NMT service of the master by pretending to receive a 'reset
+  // node' command.
+  master.Reset();
 
 #if _WIN32
   // Create two worker threads to ensure the blocking canChannelReadMessage()
