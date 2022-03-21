@@ -9,6 +9,7 @@
 #error This file requires Windows or Linux.
 #endif
 #include <lely/io2/sys/io.hpp>
+#include <lely/io2/sys/sigset.hpp>
 #include <lely/io2/sys/timer.hpp>
 
 #if _WIN32
@@ -54,6 +55,22 @@ main() {
   io::CanChannel chan(poll, exec);
 #endif
   chan.open(ctrl);
+
+  // Create a signal handler.
+  io::SignalSet sigset(poll, exec);
+  // Watch for Ctrl+C or process termination.
+  sigset.insert(SIGHUP);
+  sigset.insert(SIGINT);
+  sigset.insert(SIGTERM);
+
+  // Submit a task to be executed when a signal is raised. We don't care which.
+  sigset.submit_wait([&](int /*signo*/) {
+    // If the signal is raised again, terminate immediately.
+    sigset.clear();
+    // Perform a clean shutdown.
+    ctx.shutdown();
+  });
+
 
 #if _WIN32
   // Create two worker threads to ensure the blocking canChannelReadMessage()
