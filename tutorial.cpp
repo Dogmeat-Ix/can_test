@@ -9,6 +9,7 @@
 #error This file requires Windows or Linux.
 #endif
 #include <lely/io2/sys/io.hpp>
+#include <lely/io2/sys/timer.hpp>
 
 #if _WIN32
 #include <thread>
@@ -36,6 +37,10 @@ main() {
   ev::Loop loop(poll.get_poll());
   // I/O devices only need access to the executor interface of the event loop.
   auto exec = loop.get_executor();
+  // Create a timer using a monotonic clock, i.e., a clock that is not affected
+  // by discontinuous jumps in the system time.
+  io::Timer timer(poll, exec, CLOCK_MONOTONIC);
+
 #if _WIN32
   // Create an IXXAT CAN controller and channel. The VCI requires us to
   // explicitly specify the bitrate and restart the controller.
