@@ -11,13 +11,43 @@
 #include <lely/io2/sys/io.hpp>
 #include <lely/io2/sys/sigset.hpp>
 #include <lely/io2/sys/timer.hpp>
+#include <lely/coapp/fiber_driver.hpp>
 #include <lely/coapp/master.hpp>
 
+#include <iostream>
 #if _WIN32
 #include <thread>
 #endif
 
+using namespace std::chrono_literals;
 using namespace lely;
+
+
+// This driver inherits from FiberDriver, which means that all CANopen event
+// callbacks, such as OnBoot, run as a task inside a "fiber" (or stackful
+// coroutine).
+class MyDriver : public canopen::FiberDriver {
+ public:
+  using FiberDriver::FiberDriver;
+
+ private:
+  // This function gets called when the boot-up process of the slave completes.
+  // The 'st' parameter contains the last known NMT state of the slave
+  // (typically pre-operational), 'es' the error code (0 on success), and 'what'
+  // a description of the error, if any.
+  void
+  OnBoot(canopen::NmtState /*st*/, char es,
+         const std::string& what) noexcept override {
+    if (!es || es == 'L') {
+      std::cout << "slave " << static_cast<int>(id()) << " booted sucessfully"
+                  << std::endl;
+    } else {
+      std::cout << "slave " << static_cast<int>(id())
+                << " failed to boot: " << what << std::endl;
+    }
+  }
+};
+
 
 int
 main() {
@@ -63,6 +93,9 @@ main() {
   // task on the event loop, instead of being invoked during the event
   // processing by the stack.
   canopen::AsyncMaster master(timer, chan, "master.dcf", "", 1);
+
+  // Create a driver for the slave with node-ID 2.
+  MyDriver driver(exec, master, 2);
 
   // Create a signal handler.
   io::SignalSet sigset(poll, exec);
